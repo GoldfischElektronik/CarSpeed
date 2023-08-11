@@ -50,7 +50,7 @@ ftperpixel = frame_width_ft / float(IMAGEWIDTH)
 print("Image width in feet {} at {} from camera".format("%.0f" % frame_width_ft,"%.0f" % DISTANCE))
 
 
-
+#work in progress here
 
 
 
