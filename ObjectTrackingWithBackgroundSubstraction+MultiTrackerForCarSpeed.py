@@ -1,8 +1,7 @@
 import datetime
-import cv2
-##from helper import create_video_writer  #used when uncommenting the video creation
-from deep_sort_realtime.deepsort_tracker import DeepSort
 import time
+import cv2
+from deep_sort_realtime.deepsort_tracker import DeepSort
 import math
 import numpy as np
 import csv
@@ -29,23 +28,10 @@ MIN_SPEED = 55  #<---- enter the minimum speed for saving images
 FOV = 56    #<---- Field of view
 FPS = 30
 
-SAVE_CSV = False  #<---- record the results in .csv format in carspeed_(date).csv
-
 IMAGEWIDTH = 640
 IMAGEHEIGHT = 480
 # IMAGEWIDTH = 320
 # IMAGEHEIGHT = 240
-
-SHOW_BOUNDS = True
-SHOW_IMAGE = True
-
-# the following enumerated values are used to make the program more readable
-WAITING = 0
-TRACKING = 1
-SAVING = 2
-UNKNOWN = 0
-LEFT_TO_RIGHT = 1
-RIGHT_TO_LEFT = 2
 
 # calculate the the width of the image at the distance specified
 frame_width_m = 2*(math.tan(math.radians(FOV*0.5))*DISTANCE)
@@ -67,12 +53,10 @@ area_pixels_between_areas   = area_width - area_dist_roi_timing *2 - area_timing
 area_meters_between         = area_pixels_between_areas * mperpixel                     # todo: calculate the deviation when a vehicle does not enter an area on the first exact pixel within the area
 
 
-
 # y from:to, x from:to
 area_roi= [area_boundry_top, area_boundry_bottom , area_boundry_left, area_boundry_right]
 
 # defining areas from where an object is captured
-
 area_roi4poli = [(area_boundry_left,area_boundry_top), (area_boundry_right,area_boundry_top), (area_boundry_right, area_boundry_bottom), (area_boundry_left,area_boundry_bottom)]
 area_1 = [(area_dist_roi_timing,0), (area_timingFrame+area_dist_roi_timing, 0), (area_timingFrame+area_dist_roi_timing,area_height), (area_dist_roi_timing,area_height)]
 area_2 = [(area_width-area_dist_roi_timing-area_timingFrame, 0), (area_width-area_dist_roi_timing,0), (area_width-area_dist_roi_timing,area_height), (area_width-area_dist_roi_timing-area_timingFrame,area_height)]
@@ -88,15 +72,25 @@ YELLOW = (0, 230, 250)
 
 # initialize the video capture object
 
-video_cap = cv2.VideoCapture('outputKeep.avi')
+video_cap = cv2.VideoCapture('video.avi')
 # video_cap = cv2.VideoCapture(2)
 
-# video_cap.set(3, IMAGEWIDTH)
-# video_cap.set(4, IMAGEHEIGHT)
+
+def create_video_writer(video_cap, output_filename):
+
+    # grab the width, height, and fps of the frames in the video stream.
+    frame_width = int(video_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_height = int(video_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = int(video_cap.get(cv2.CAP_PROP_FPS))
+
+    # initialize the FourCC and a video writer object
+    fourcc = cv2.VideoWriter_fourcc(*'MP4V')
+    writer = cv2.VideoWriter(output_filename, fourcc, fps, (frame_width, frame_height))
+    return writer
 
 
 # initialize the video writer object
-#writer = create_video_writer(video_cap, "output.mp4")
+writer = create_video_writer(video_cap, "output.mp4")
 
 
 trackerDeepSort = DeepSort(max_age=50) #50 is a good value
@@ -111,9 +105,6 @@ object_detector = cv2.createBackgroundSubtractorMOG2(history=200, varThreshold=3
 
 framePlus = 0 #number of pixels added to the rectancle to get better trackerDeepSortDeppSort results -> does not improve it
 
-def calculate_time_delta_seconds(startTime, endTime):
-    diff = endTime - startTime
-    return diff.total_seconds()
 
 # calculate speed from pixels and time
 def get_speed(pixels, secs):
@@ -130,19 +121,14 @@ def get_speed(pixels, secs):
 
     else:
         return 0.0
-    
 
-    # speed_car = get_speed(area_pixels_between_areas, mperpixel, ) area_meters_between/1000 / ( time_car_AtoB / 3600.0 )
  
-# record speed in .csv format
-def record_speed(res):
-
-# writer.writerow(["Isabel Walter", "50", "United Kingdom"])
-
-    global csvfileout
-    f = open(csvfileout, 'a')
-    f.write(res+"\n")
-    f.close
+# # record speed in .csv format
+# def record_speed(res):
+#     global csvfileout
+#     f = open(csvfileout, 'a')
+#     f.write(res+"\n")
+#     f.close
 
 csvFileName = "carspeed_{}.cvs".format(datetime.datetime.now().strftime("%Y%m%d_%H%M"))
 
@@ -172,12 +158,6 @@ def save_picture(timestamp, speed):
     # record_speed(time_car_end.strftime("%Y.%m.%d")+','+time_car_end.strftime('%A')+','+\
     #     time_car_end.strftime('%H%M')+','+("%.0f" % speed_car) + ','+imageFilename)
 
-
-
-
-
-
-
 # mouse callback function for drawing capture area xx todo: implement this into the now fixed defined area
 # def draw_rectangle(event,x,y,flags,param):
 #     global ix,iy,fx,fy,drawing,setup_complete,image, org_image, prompt
@@ -199,11 +179,14 @@ def save_picture(timestamp, speed):
 #         prompt_on_image(prompt)
 #         cv2.rectangle(image,(ix,iy),(fx,fy),(0,255,0),2)
 
-## variable ist used to skip frames (30 fps -> 10 fps used)
+# variable is used to skip frames (30 fps -> 10 fps used)
 count = 0
 
-# create a dictionary for tracking vehicles
+def calculate_time_delta_seconds(startTime, endTime):
+    diff = endTime - startTime
+    return diff.total_seconds()
 
+# create a dictionary for tracking vehicles
 vehiclesCrossed_area_1 = {}
 vehiclesCrossed_area_2 = {}
 
@@ -231,7 +214,7 @@ while True:
 
     
 
-    # blacking out sentitive areas which should nogt be monitored
+    # blacking out sentitive areas which should not be monitored/seen
     # cv2.rectangle(frame,(0,0), (640, 100), (BLACK), -1) # B, G, R)
     # cv2.rectangle(frame,(0,300), (640, 480), (BLACK), -1) # B, G, R)
 
@@ -277,9 +260,9 @@ while True:
     tracks = trackerDeepSort.update_tracks(results, frame=roi)
 
     # show the area 1 and 2 only for the displayed picture invisible for the calculations
-    # cv2.polylines(roi, [np.array(area_1, np.int32)], 1, (BLUE), 1) 
-    # cv2.polylines(roi, [np.array(area_2, np.int32)], 1, (YELLOW), 1)
-    # cv2.polylines(frame, [np.array(area_roi4poli, np.int32)], 1, (RED), 1)
+    cv2.polylines(roi, [np.array(area_1, np.int32)], 1, (BLUE), 1) 
+    cv2.polylines(roi, [np.array(area_2, np.int32)], 1, (YELLOW), 1)
+    cv2.polylines(frame, [np.array(area_roi4poli, np.int32)], 1, (RED), 1)
 
     # loop over the tracks
     for track in tracks:
@@ -342,7 +325,7 @@ while True:
                    
                     speed_car = get_speed(area_pixels_between_areas, time_car_diff)
                     
-                    print("--------------------------------------")
+                    print("---------------------------------------")
                     print("id:         ", track_id_int)  
                     print("start:      ", time_car_start)
                     print("end:        ", time_car_end)
