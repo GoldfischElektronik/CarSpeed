@@ -117,7 +117,7 @@ def get_speed(pixels, secs):
         # print("km: ", km)
         # print("s : ", secs)
         # print("h:  ", h)
-        return (km/h) 
+        return round(km/h, 0)
 
     else:
         return 0.0
@@ -134,11 +134,17 @@ csvFileName = "carspeed_{}.cvs".format(datetime.datetime.now().strftime("%Y%m%d_
 
 my_file = Path(csvFileName)
 
-with open('csvFileName', 'w', newline='') as file:
+with open(csvFileName, 'w', newline='') as file:
     writer = csv.writer(file)
     field = ["Date", "Day", "Time" ,"Speed" ,"Image"]
     writer.writerow(field)
+
+
+def image_name(datetime, speed):
+    file_name_str = "car_at_" + datetime.strftime("%Y%m%d_%H%M%S") + "_" + str(speed) + ".jpg"
+    return file_name_str
     
+
 def save_picture(timestamp, speed):
     # timestamp the image
     cv2.putText(frame, time_car_end.strftime("%A %d %B %Y %I:%M:%S%p"), (10, frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.75, WHITE, 1)
@@ -149,7 +155,7 @@ def save_picture(timestamp, speed):
     cv2.putText(frame, "%.0f kmh" % speed_car,
         (cntr_x , int(IMAGEHEIGHT * 0.2)), cv2.FONT_HERSHEY_SIMPLEX, 2.00, (0, 255, 0), 3)
     # and save the image to disk
-    imageFilename = "car_at_" + time_car_end.strftime("%Y%m%d_%H%M%S") + ".jpg"
+    imageFilename = image_name(timestamp, speed)
     # use the following image file name if you want to be able to sort the images by speed
     #imageFilename = "car_at_%02.0f" % last_mph + "_" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S") + ".jpg"
                         
@@ -157,6 +163,13 @@ def save_picture(timestamp, speed):
                                             
     # record_speed(time_car_end.strftime("%Y.%m.%d")+','+time_car_end.strftime('%A')+','+\
     #     time_car_end.strftime('%H%M')+','+("%.0f" % speed_car) + ','+imageFilename)
+
+def csv_add_row(time_car_end, speed_car):    
+    with open(csvFileName, 'a') as f:
+        writer = csv.writer(f)
+        fields = [time_car_end, "Day2", "Time2" ,speed_car , image_name(time_car_end, speed_car)]
+        writer.writerow(fields)
+
 
 # mouse callback function for drawing capture area xx todo: implement this into the now fixed defined area
 # def draw_rectangle(event,x,y,flags,param):
@@ -190,6 +203,16 @@ def calculate_time_delta_seconds(startTime, endTime):
 vehiclesCrossed_area_1 = {}
 vehiclesCrossed_area_2 = {}
 
+def draw_bounding_boxes(which_frame, track_cx, track_cy, xmin, xmax, ymin, ymax, track_id_int, time, time_start, color):
+            cv2.circle(which_frame, (track_cx, track_cy), 5, color, -1)
+            cv2.rectangle(which_frame, (xmin, ymin), (xmax, ymax), color, 1)
+            cv2.rectangle(which_frame, (xmin, ymin - 20), (xmin + 20, ymin), color, -1)
+            cv2.putText(which_frame, str(track_id_int), (xmin + 2, ymin - 7), cv2.FONT_HERSHEY_DUPLEX, 0.5, BLACK, 1) 
+            time_passed = calculate_time_delta_seconds(time, time_start)
+            temp_format_float = "{:.2f}".format(time_passed)
+            cv2.putText(which_frame, str(temp_format_float), (xmin + 20, ymin - 7), cv2.FONT_HERSHEY_DUPLEX, 0.5, WHITE, 1)
+
+            # cv2.putText(roi, str(temp_format_float), (xmin + 60, ymin - 7), cv2.FONT_HERSHEY_DUPLEX, 0.5, WHITE, 1)
 
 while True:
     # capture the time for the FPS and vehicle speed (time spent between area 1 and 2)
@@ -300,16 +323,21 @@ while True:
                     time_car_diff = calculate_time_delta_seconds(time_car_start, time_car_end)
                    
                     speed_car = get_speed(area_pixels_between_areas, time_car_diff)
-                    print("--------------------------------------")
-                    print("id:         ", track_id_int)  
-                    print("start:      ", time_car_start)
-                    print("end:        ", time_car_end)
-                    print("diff in s:  ", time_car_diff)
-                    print("distance m: ", area_meters_between)
-                    print("speed:      ", speed_car)
+                    # print("--------------------------------------")
+                    # print("id:         ", track_id_int)  
+                    # print("start:      ", time_car_start)
+                    # print("end:        ", time_car_end)
+                    # print("diff in s:  ", time_car_diff)
+                    # print("distance m: ", area_meters_between)
+                    # print("speed:      ", speed_car)
+                                        
+                    draw_bounding_boxes(roi, track_cx, track_cy, xmin, xmax, ymin, ymax, track_id_int, time_car_end, time_start, BLUE)
                     
                     save_picture(time_car_end, speed_car)
                     
+                    csv_add_row(time_car_end, speed_car)  
+
+
 
         if isInArea_2 >= 0:
             if track_id_int not in vehiclesCrossed_area_2:
@@ -319,51 +347,38 @@ while True:
                 if track_id_int in vehiclesCrossed_area_1:
                     
                     time_car_start = vehiclesCrossed_area_1.get(track_id_int)
-                    time_car_end = time_start
+                    time_car_end = time_start # this is confusing naming, time_start is the start of the timing for this frame, which in this case is the last relevant frme for this car
                             
                     time_car_diff = calculate_time_delta_seconds(time_car_start, time_car_end)
                    
                     speed_car = get_speed(area_pixels_between_areas, time_car_diff)
                     
-                    print("---------------------------------------")
-                    print("id:         ", track_id_int)  
-                    print("start:      ", time_car_start)
-                    print("end:        ", time_car_end)
-                    print("diff in s:  ", time_car_diff)
-                    print("distance m: ", area_meters_between)
-                    print("speed:      ", speed_car)
+                    # print("---------------------------------------")
+                    # print("id:         ", track_id_int)  
+                    # print("start:      ", time_car_start)
+                    # print("end:        ", time_car_end)
+                    # print("diff in s:  ", time_car_diff)
+                    # print("distance m: ", area_meters_between)
+                    # print("speed:      ", speed_car)
 
+                    print(str(time_car_end))
+
+                    draw_bounding_boxes(roi, track_cx, track_cy, xmin, xmax, ymin, ymax, track_id_int, time_car_end, time_start, YELLOW)
+                    
                     save_picture(time_car_end, speed_car)
+
+                    csv_add_row(time_car_end, speed_car)  
 
 
         if track_id_int in vehiclesCrossed_area_1:
             # draw the bounding box and the track id
+            time2 = vehiclesCrossed_area_1.get(track_id_int)
+            draw_bounding_boxes(roi, track_cx, track_cy, xmin, xmax, ymin, ymax, track_id_int, time2, time_start, BLUE)
             
-            a1time = vehiclesCrossed_area_1.get(track_id_int)
-
-            cv2.circle(roi, (track_cx, track_cy), 5, BLUE, -1)
-            cv2.rectangle(roi, (xmin, ymin), (xmax, ymax), BLUE, 2)
-            cv2.rectangle(roi, (xmin, ymin - 20), (xmin + 20, ymin), BLUE, -1)
-            cv2.putText(roi, str(track_id), (xmin + 2, ymin - 7), cv2.FONT_HERSHEY_DUPLEX, 0.5, BLACK, 1) 
-            time_passed = calculate_time_delta_seconds(a1time, time_start)
-            temp_format_float = "{:.2f}".format(time_passed)
-            cv2.putText(roi, str(temp_format_float), (xmin + 20, ymin - 7), cv2.FONT_HERSHEY_DUPLEX, 0.5, WHITE, 1)
-
-            # cv2.putText(roi, str(temp_format_float), (xmin + 60, ymin - 7), cv2.FONT_HERSHEY_DUPLEX, 0.5, WHITE, 1)
-
-
         if track_id_int in vehiclesCrossed_area_2:
             # draw the bounding box and the track idq
-            a2time = vehiclesCrossed_area_2.get(track_id_int)
-
-            cv2.circle(roi, (track_cx, track_cy), 5, YELLOW, -1)
-            cv2.rectangle(roi, (xmin, ymin), (xmax, ymax), YELLOW, 2)
-            cv2.rectangle(roi, (xmin, ymin - 20), (xmin + 20, ymin), YELLOW, -1)
-            cv2.putText(roi, str(track_id), (xmin + 2, ymin - 7), cv2.FONT_HERSHEY_DUPLEX, 0.5, BLACK, 1)
-            time_passed = calculate_time_delta_seconds(a2time, time_start)
-            temp_format_float = "{:.2f}".format(time_passed)
-            cv2.putText(roi, str(temp_format_float), (xmin + 20, ymin - 7), cv2.FONT_HERSHEY_DUPLEX, 0.5, WHITE, 1)
-
+            time2 = vehiclesCrossed_area_2.get(track_id_int)
+            draw_bounding_boxes(roi, track_cx, track_cy, xmin, xmax, ymin, ymax, track_id_int, time2, time_start, YELLOW)
             
 
     # end time to compute the fps
